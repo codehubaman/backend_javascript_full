@@ -2,13 +2,27 @@
 
 
 import dotenv from "dotenv";
+import { app } from "./app.js";
 dotenv.config(
-    { path: "./.env" }
+    {
+        path: `.env.${process.env.NODE_ENV}` // use.env.development for development environment
+
+    }
 );
 import connectDB from "./db/index.js";
 
 
-connectDB();
+// as we are calling asynchronous method so it return promise 
+
+connectDB()
+    .then(() => {
+        app.listen(process.env.PORT || 8000, () => {
+            console.log(`listening on port :${process.env.PORT}`);
+        })
+    })
+    .catch(err =>
+        console.error(" MongoDB connection failed", err)
+    )
 
 
 
