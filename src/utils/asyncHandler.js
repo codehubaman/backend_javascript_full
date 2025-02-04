@@ -1,5 +1,8 @@
 // async handler are higher order function: which accept other function as parameter or return  function
 
+
+
+// it is a utility wrapper to handle the 
 const asyncHandler = (requestHadler) => {
     (req, res, next) => {
         Promise.resolve(requestHadler(req, res, next)).
