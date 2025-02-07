@@ -63,7 +63,7 @@ userSchema.pre("save", async function (next) {
     this.password = await bcrypt.hash(this.password, 10)
     next()
 })
-// make our own methods 
+
 userSchema.methods.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password, this.password)
 }
@@ -71,7 +71,6 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
         {
-            // payload  name or key is _id and this._id is  came from database
             _id: this._id,
             email: this.email,
             username: this.username,

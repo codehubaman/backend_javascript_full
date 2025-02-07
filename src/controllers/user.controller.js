@@ -4,6 +4,28 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken"
+// asyncHanlder is not required in this async function as these method is used only by internal methods 
+// not performaing any web request
+const generateAccessAndRefereshTokens = async (userId) => {
+    try {
+        const user = await User.findById(userId)
+        console.log(user)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+
+        return { accessToken, refreshToken }
+
+
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while generating refresh and access token")
+    }
+}
+
+
 const registerUser = asyncHandler(async (req, res) => {
 
 
@@ -80,4 +102,121 @@ const registerUser = asyncHandler(async (req, res) => {
     )
 })
 
-export default registerUser
+const loginUser = asyncHandler(async (req, res) => {
+
+    //  req body data  
+    // username or email
+    // find the user
+    // check password
+    // generate jwt access token and refresh token
+    //send secure cookies 
+    // return res
+
+
+    const { email, username, password } = req.body
+
+    if (!(username || email)) {
+        throw new ApiError(400, "Email or username is required")
+    }
+
+
+    // let user;
+    // if(username){
+    //     user = await User.findOne({usern    ame: username.toLowerCase()})
+    // }
+    // else if(email){
+    //     user = await User.findOne({email: email.toLowerCase()})
+    // }
+    const user = await User.findOne({
+        $or: [{ username: username }, { email: email }]
+    })
+
+    if (!user) {
+        throw new ApiError(404, "user not exist")
+    }
+
+    // jo methods like(generate access token ,isPasswordCorrect) come through  apne "user" mai hai 
+    // and User is mongodb mongoose object and its methods are findOne
+    // if (!password) {
+    //     throw new ApiError(400, "Password is required");
+    // }
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if (!isPasswordValid) {
+        throw new ApiError(401, "password is required")
+
+    }
+    const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(user._id);
+
+    const loggedInUser = await User.findById(user._id).select("-password  -refreshToken")
+
+    // to send cookies
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {
+                    user: loggedInUser,
+                    accessToken,
+                    refreshToken
+                },
+                "User logged in asuccessfully"
+            )
+        )
+
+
+})
+
+const logoutUser = asyncHandler(async (req, res) => {
+    // remove access and refresh token from cookies
+    // return res
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+
+    )
+    // to send cookies
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res.
+        status(200).
+        clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
+        .json(
+            new ApiResponse(
+                200,
+                {},
+                "User logged out successfully"
+            )
+
+        )
+})
+
+
+
+
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser
+}
